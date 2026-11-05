@@ -1,0 +1,18 @@
+{
+  "fair-agreement": {
+    "expected": [],
+    "must_not": ["deposit", "lock_in", "notice_period", "rent_escalation", "entry_privacy", "maintenance_repairs"],
+    "expected_level": "low"
+  },
+  "typical-agreement": {
+    "expected": ["deposit", "lock_in", "notice_period", "deductions"],
+    "must_not": ["rent_escalation"],
+    "expected_level": "high"
+  },
+  "risky-agreement": {
+    "expected": ["deposit", "lock_in", "notice_period", "rent_escalation", "maintenance_repairs",
+                 "deductions", "entry_privacy", "penalties", "usage_restrictions"],
+    "must_not": [],
+    "expected_level": "high"
+  }
+}
