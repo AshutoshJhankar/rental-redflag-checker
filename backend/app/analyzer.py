@@ -118,7 +118,7 @@ class Analyzer:
             risk_score=score,
             risk_level="high" if score >= 50 else "moderate" if score >= 20 else "low",
             discarded_flags=discarded,
-            model=getattr(self.llm, "name", ""),
+            model=getattr(self.llm, "last_model", None) or getattr(self.llm, "name", ""),
         )
 
     # ----- LLM call with one repair round -----
@@ -139,11 +139,8 @@ class Analyzer:
                     {"role": "assistant", "content": json.dumps(raw)[:6000]},
                     {"role": "user", "content": f"That JSON failed validation:\n{last_error}\nReturn corrected JSON only."},
                 ]
-            except LLMError as e:
-                last_error = str(e)
-                if "HTTP" in last_error or "request failed" in last_error:
-                    raise  # provider/network problem: surface it instead of retrying blindly
-                messages = base + [{"role": "user", "content": "Your reply was not valid JSON. Return the JSON object only."}]
+            except LLMError:
+                raise  # the client already tried every configured model; don't spend more requests
         raise LLMError(f"Could not get a valid analysis from the model: {last_error[:200]}")
 
     # ----- verification: the model proposes, code checks -----

@@ -6,3 +6,12 @@ __pycache__/
 node_modules/
 dist/
 backend/evals/results.json
+*.log
+backend/check_llm_output.txt
+diag.bat
+diag.txt
+_cleanup_once.*
+_probe_models.bat
+backend/probe_models.py
+backend/probe_results.txt
+.env.local

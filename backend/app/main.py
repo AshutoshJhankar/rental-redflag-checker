@@ -1,6 +1,8 @@
 """FastAPI app for the Rental Agreement Red-Flag Checker."""
 from __future__ import annotations
 
+import logging
+import os
 import threading
 import time
 from collections import defaultdict, deque
@@ -16,11 +18,25 @@ from .llm import LLMError, OpenAICompatibleLLM
 from .schemas import Analysis
 from .store import StoreError, build_store
 
+log = logging.getLogger("uvicorn.error")
+ERROR_LOG = os.getenv("LLM_ERROR_LOG", "llm_errors.log")  # relative to where uvicorn runs (backend/)
+
+
+def record_llm_error(e: Exception) -> None:
+    """Print the provider's real error to the server log and append it to a local file for debugging."""
+    log.warning("LLM call failed: %s", e)
+    try:
+        with open(ERROR_LOG, "a", encoding="utf-8") as f:
+            f.write(f"{time.strftime('%Y-%m-%d %H:%M:%S')} {e}\n")
+    except OSError:
+        pass
+
 settings = Settings.from_env()
+fallback_models = [x.strip() for x in settings.llm_fallback_models.split(",") if x.strip()]
 store = build_store(settings.supabase_url, settings.supabase_service_key, settings.retention_days)
 analyzer = (
     Analyzer(OpenAICompatibleLLM(settings.llm_api_key, settings.llm_base_url, settings.llm_model,
-                                 settings.llm_timeout_s), settings)
+                                 settings.llm_timeout_s, fallback_models), settings)
     if settings.llm_api_key else None
 )
 
@@ -56,9 +72,13 @@ def _client_ip(request: Request) -> str:
     return fwd.split(",")[0].strip() or (request.client.host if request.client else "unknown")
 
 
+
+def parser_or_analyzer_models() -> list[str]:
+    return analyzer.llm.models if analyzer is not None else []
+
 @app.get("/api/health")
 def health() -> dict:
-    return {"ok": True, "llm_configured": analyzer is not None, "store": store.name}
+    return {"ok": True, "models": parser_or_analyzer_models(), "llm_configured": analyzer is not None, "store": store.name}
 
 
 @app.post("/api/analyze", response_model=Analysis)
@@ -77,6 +97,10 @@ async def analyze(request: Request, file: UploadFile = File(...)) -> Analysis:
     except DocumentError as e:
         raise HTTPException(400, str(e)) from e
     except LLMError as e:
+        record_llm_error(e)
+        if "HTTP 429" in str(e):  # every model we tried was busy or rate-limited
+            raise HTTPException(503, "The free AI model is busy or today's request limit is used up. "
+                                     "Please try again in a minute.") from e
         raise HTTPException(502, "The AI model didn't return a usable analysis. Please try again.") from e
     try:
         return await run_in_threadpool(store.save, result)

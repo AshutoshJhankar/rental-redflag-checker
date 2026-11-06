@@ -16,6 +16,8 @@ services:
         sync: false
       - key: LLM_MODEL
         sync: false
+      - key: LLM_FALLBACK_MODELS
+        sync: false
       - key: SUPABASE_URL
         sync: false
       - key: SUPABASE_SERVICE_KEY

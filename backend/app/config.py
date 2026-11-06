@@ -11,7 +11,8 @@ class Settings:
     llm_api_key: str = ""
     llm_base_url: str = "https://api.openai.com/v1"
     llm_model: str = "gpt-4o-mini"
-    llm_timeout_s: float = 60.0
+    llm_fallback_models: str = ""      # comma-separated, tried in order if the main model is busy
+    llm_timeout_s: float = 90.0       # free reasoning models can be slow
 
     # Supabase (PostgREST). Without these, analyses are kept in memory (local dev).
     supabase_url: str = ""
@@ -34,6 +35,7 @@ class Settings:
             llm_api_key=e("LLM_API_KEY", ""),
             llm_base_url=e("LLM_BASE_URL", cls.llm_base_url),
             llm_model=e("LLM_MODEL", cls.llm_model),
+            llm_fallback_models=e("LLM_FALLBACK_MODELS", ""),
             llm_timeout_s=float(e("LLM_TIMEOUT_S", cls.llm_timeout_s)),
             supabase_url=e("SUPABASE_URL", "").rstrip("/"),
             supabase_service_key=e("SUPABASE_SERVICE_KEY", ""),
